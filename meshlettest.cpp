@@ -730,7 +730,7 @@ bool Sample::begin()
 
   if(m_context.m_physicalInfo.features12.storageBuffer8BitAccess == VK_FALSE
      || m_context.m_physicalInfo.features11.storageBuffer16BitAccess == VK_FALSE
-     || m_context.m_physicalInfo.features12.shaderInt8 == VK_FALSE || m_context.m_physicalInfo.features12.shaderFloat16 == VK_FALSE
+     || m_context.m_physicalInfo.features12.shaderInt8 == VK_FALSE
      || m_context.m_physicalInfo.features12.bufferDeviceAddress == VK_FALSE)
   {
     LOGE("Missing Vulkan features\n");

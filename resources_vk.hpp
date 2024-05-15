@@ -113,6 +113,8 @@ public:
   {
     nvvk::ShaderModuleID standard_vertex;
     nvvk::ShaderModuleID standard_fragment;
+    nvvk::ShaderModuleID standard_tess_ctrl;
+    nvvk::ShaderModuleID standard_tess_eval;
 
     MeshShaderModuleIDs meshNV;
     MeshShaderModuleIDs meshEXT;

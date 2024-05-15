@@ -40,10 +40,6 @@
   layout(std140,binding= SCENE_UBO_VIEW,set=DSET_SCENE) uniform sceneBuffer {
     SceneData scene;
   };
-
-  layout(std140,binding=0,set=DSET_OBJECT) uniform objectBuffer {
-    ObjectData object;
-  };
   
 #else
 

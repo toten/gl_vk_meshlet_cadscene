@@ -20,7 +20,7 @@
  
 vec4 shading(vec3 wPos, vec3 wNormal, uint meshletID)
 {  
-  vec4 color = object.color * 0.8 + 0.2;
+  vec4 color = vec4(1.0f, 0.0f, 0.0f, 1.0f) * 0.8 + 0.2;
   if (scene.colorize != 0) {
     uint colorPacked = murmurHash(meshletID);
     color = color * 0.5 + unpackUnorm4x8(colorPacked) * 0.5;

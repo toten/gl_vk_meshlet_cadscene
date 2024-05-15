@@ -20,13 +20,13 @@
 
 #version 450
 
-#ifdef VULKAN 
+#ifdef VULKAN
   #extension GL_GOOGLE_include_directive : enable
   #extension GL_EXT_control_flow_attributes: require
   #define UNROLL_LOOP [[unroll]]
 #else
   #extension GL_ARB_shading_language_include : enable
-  #pragma optionNV(unroll all)  
+  #pragma optionNV(unroll all)
   #define UNROLL_LOOP
 #endif
 
@@ -35,22 +35,27 @@
 //////////////////////////////////////////////////
 // UNIFORMS
 
-#if IS_VULKAN
-
-#else
-
-#endif
-
 //////////////////////////////////////////////////
 // INPUT
 
 //////////////////////////////////////////////////
 // OUTPUT
 
+layout (vertices = 1) out;
+
 //////////////////////////////////////////////////
 // VERTEX EXECUTION
 
 void main()
 {
-  gl_Position = vec4(gl_VertexIndex, gl_InstanceIndex, 0, 0);
+  gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+
+  // Set tessellation levels
+  gl_TessLevelOuter[0] = 64.0; // Outer tessellation level
+  gl_TessLevelOuter[1] = 64.0;
+  gl_TessLevelOuter[2] = 64.0;
+  gl_TessLevelOuter[3] = 64.0;
+
+  gl_TessLevelInner[0] = 64.0; // Inner tessellation level
+  gl_TessLevelInner[1] = 64.0;
 }

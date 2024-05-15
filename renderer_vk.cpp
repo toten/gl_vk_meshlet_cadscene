@@ -85,43 +85,11 @@ private:
     int lastMatrix   = -1;
     int lastChunk    = -1;
 
-    bool first = true;
-    for(size_t i = 0; i < numItems; i++)
     {
-      const RenderList::DrawItem& di = drawItems[i];
-
-      if(first)
-      {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, setup.pipeline);
-
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, setup.container.getPipeLayout(), DSET_SCENE, 1,
-                                setup.container.at(DSET_SCENE).getSets(), 0, nullptr);
-
-        first = false;
-      }
-
-      if(lastGeometry != di.geometryIndex)
-      {
-        const CadSceneVK::Geometry& geo = sceneVK.m_geometry[di.geometryIndex];
-
-        vkCmdBindVertexBuffers(cmd, 0, 1, &geo.vbo.buffer, &geo.vbo.offset);
-        vkCmdBindVertexBuffers(cmd, 1, 1, &geo.abo.buffer, &geo.abo.offset);
-        vkCmdBindIndexBuffer(cmd, geo.ibo.buffer, geo.ibo.offset, di.shorts ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
-
-        lastGeometry = di.geometryIndex;
-      }
-
-      if(lastMatrix != di.matrixIndex)
-      {
-        uint32_t offset = di.matrixIndex * res->m_alignedMatrixSize;
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, setup.container.getPipeLayout(), DSET_OBJECT, 1,
-                                setup.container.at(DSET_OBJECT).getSets(), 1, &offset);
-        lastMatrix = di.matrixIndex;
-      }
-
-      // drawcall
-      size_t indexSize = di.shorts ? sizeof(uint16_t) : sizeof(uint32_t);
-      vkCmdDrawIndexed(cmd, di.range.count, 1, uint32_t(di.range.offset / indexSize), 0, 0);
+      vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, setup.pipeline);
+      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, setup.container.getPipeLayout(), DSET_SCENE, 1,
+                              setup.container.at(DSET_SCENE).getSets(), 0, nullptr);
+      vkCmdDraw(cmd, 9, 9, 0, 0);
     }
 
     vkEndCommandBuffer(cmd);

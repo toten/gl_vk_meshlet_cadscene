@@ -324,7 +324,7 @@ void ResourcesVK::initPipeLayouts()
     auto& bindingsScene = setup.container.at(DSET_SCENE);
     // UBO SCENE
     bindingsScene.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
-                             VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+                             VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     bindingsScene.initLayout();
     // UBO OBJECT
     auto& bindingsObject = setup.container.at(DSET_OBJECT);
@@ -469,6 +469,8 @@ bool ResourcesVK::initPrograms(const std::string& path, const std::string& prepe
   ///////////////////////////////////////////////////////////////////////////////////////////
   {
     m_shaders.standard_vertex   = m_shaderManager.createShaderModule(VK_SHADER_STAGE_VERTEX_BIT, "draw.vert.glsl");
+    m_shaders.standard_tess_ctrl   = m_shaderManager.createShaderModule(VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, "draw.tcs.glsl");
+    m_shaders.standard_tess_eval   = m_shaderManager.createShaderModule(VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, "draw.tes.glsl");
     m_shaders.standard_fragment = m_shaderManager.createShaderModule(VK_SHADER_STAGE_FRAGMENT_BIT, "draw.frag.glsl");
   }
 
@@ -923,13 +925,13 @@ void ResourcesVK::initPipes()
   }
 
   VkPipelineVertexInputStateCreateInfo viStateInfo = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-  viStateInfo.vertexBindingDescriptionCount        = NV_ARRAY_SIZE(vertexBinding);
-  viStateInfo.pVertexBindingDescriptions           = vertexBinding;
-  viStateInfo.vertexAttributeDescriptionCount      = uint32_t(attributes.size());
-  viStateInfo.pVertexAttributeDescriptions         = attributes.data();
+  viStateInfo.vertexBindingDescriptionCount        = 0;
+  viStateInfo.pVertexBindingDescriptions           = NULL;
+  viStateInfo.vertexAttributeDescriptionCount      = 0;
+  viStateInfo.pVertexAttributeDescriptions         = NULL;
 
   VkPipelineInputAssemblyStateCreateInfo iaStateInfo = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
-  iaStateInfo.topology                               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  iaStateInfo.topology                               = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
   iaStateInfo.primitiveRestartEnable                 = VK_FALSE;
 
   VkPipelineViewportStateCreateInfo vpStateInfo = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
@@ -985,7 +987,7 @@ void ResourcesVK::initPipes()
   msStateInfo.pSampleMask                          = &sampleMask;
 
   VkPipelineTessellationStateCreateInfo tessStateInfo = {VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO};
-  tessStateInfo.patchControlPoints                    = 0;
+  tessStateInfo.patchControlPoints                    = 1;
 
   VkPipelineDynamicStateCreateInfo dynStateInfo = {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
   VkDynamicState                   dynStates[]  = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
@@ -1005,7 +1007,7 @@ void ResourcesVK::initPipes()
   pipelineInfo.renderPass = m_framebuffer.passPreserve;
   pipelineInfo.subpass    = 0;
 
-  VkPipelineShaderStageCreateInfo stages[3];
+  VkPipelineShaderStageCreateInfo stages[4];
   memset(stages, 0, sizeof(stages));
   pipelineInfo.pStages = stages;
 
@@ -1015,18 +1017,24 @@ void ResourcesVK::initPipes()
   stages[1].pName = "main";
   stages[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   stages[2].pName = "main";
+  stages[3].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  stages[3].pName = "main";
 
 
   {
     pipelineInfo.pRasterizationState = &rsStateInfo;
     pipelineInfo.layout              = m_setupStandard.container.getPipeLayout();
-    iaStateInfo.topology             = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    iaStateInfo.topology             = VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
 
-    pipelineInfo.stageCount = 2;
+    pipelineInfo.stageCount = 4;
     stages[0].stage         = VK_SHADER_STAGE_VERTEX_BIT;
     stages[0].module        = m_shaderManager.get(m_shaders.standard_vertex);
-    stages[1].stage         = VK_SHADER_STAGE_FRAGMENT_BIT;
-    stages[1].module        = m_shaderManager.get(m_shaders.standard_fragment);
+    stages[1].stage         = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    stages[1].module        = m_shaderManager.get(m_shaders.standard_tess_ctrl);
+    stages[2].stage         = VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    stages[2].module        = m_shaderManager.get(m_shaders.standard_tess_eval);
+    stages[3].stage         = VK_SHADER_STAGE_FRAGMENT_BIT;
+    stages[3].module        = m_shaderManager.get(m_shaders.standard_fragment);
 
     result = vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_setupStandard.pipeline);
     assert(result == VK_SUCCESS);
