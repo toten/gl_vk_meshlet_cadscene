@@ -44,7 +44,7 @@
 layout (vertices = 1) out;
 
 //////////////////////////////////////////////////
-// VERTEX EXECUTION
+// TESSELLATION CONTROL SHADER EXECUTION
 
 void main()
 {

@@ -32,7 +32,11 @@ vec4 shading(vec3 wPos, vec3 wNormal, uint meshletID)
   vec3 normal   = normalize(wNormal) * (gl_FrontFacing ? 1 : 1);
 
 #if 1
+#if 0
   vec4 diffuse  = vec4(abs(dot(normal,lightDir)));
+#else
+  vec4 diffuse  = vec4(dot(normal,lightDir) < 0 ? 0 : dot(normal,lightDir));
+#endif
   vec4 outColor = diffuse * color;
 #else
   float lt = abs(dot(normal,lightDir));
