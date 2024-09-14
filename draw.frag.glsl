@@ -96,14 +96,6 @@ void main()
 #else
 
   vec4 color = shading(IN.wPos, IN.wNormal, IN.meshletID);
-  #if VERTEX_EXTRAS_COUNT
-  {
-    UNROLL_LOOP
-    for (int i = 0; i < VERTEX_EXTRAS_COUNT; i++){
-      color += IN.xtra[i];
-    }
-  }
-  #endif
   out_Color = color;
   
 #endif
