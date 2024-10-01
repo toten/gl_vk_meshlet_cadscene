@@ -175,7 +175,7 @@ control_bicubic_height rand_bicubic_height(ivec2 uv)
   {
     for (int j = 0; j < 4; ++j)
     {
-      bicubic_height.val[i][j] = BSPLINE_HEIGHT_SCALE * 2.0f * fract(s[j] * t[i] * (s[j] + t[i])) - 1.0f;
+      bicubic_height.val[i][j] = BSPLINE_HEIGHT_SCALE * (2.0f * fract(s[j] * t[i] * (s[j] + t[i])) - 1.0f);
     }
   }
 
