@@ -86,6 +86,8 @@ layout(location=0,index=0) out vec4 out_Color;
 #include "draw_shading.glsl"
 #endif
 
+#define FACE_NORMAL 0
+
 void main()
 {
 #if SHOW_PRIMIDS
@@ -95,7 +97,12 @@ void main()
   
 #else
 
-  vec4 color = shading(IN.wPos, IN.wNormal, IN.meshletID);
+#if FACE_NORMAL
+  vec3 normal = -normalize(cross(dFdx(IN.wPos), dFdy(IN.wPos)));
+#else
+  vec3 normal = IN.wNormal;
+#endif
+  vec4 color = shading(IN.wPos, normal, IN.meshletID);
   out_Color = color;
   
 #endif
