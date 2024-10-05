@@ -31,7 +31,7 @@
 #include <nvgl/glsltypes_gl.hpp>
 #include <imgui/backends/imgui_impl_gl.h>
 
-#define EXE_NAME "gl_meshlet_cadscene"
+#define EXE_NAME "gl_terrain"
 
 #elif IS_VULKAN
 #include "vk_ext_mesh_shader.h"
@@ -39,7 +39,7 @@
 #include <nvvk/context_vk.hpp>
 #include "resources_vk.hpp"
 
-#define EXE_NAME "vk_meshlet_cadscene"
+#define EXE_NAME "vk_terrain"
 #endif
 
 
