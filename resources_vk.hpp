@@ -113,6 +113,9 @@ public:
   {
     nvvk::ShaderModuleID standard_vertex;
     nvvk::ShaderModuleID standard_fragment;
+#if SW_MESHLET
+    nvvk::ShaderModuleID standard_compute;
+#endif
 
     MeshShaderModuleIDs meshNV;
     MeshShaderModuleIDs meshEXT;
@@ -164,6 +167,9 @@ public:
   DrawSetup m_setupBbox;
   DrawSetup m_setupMeshNV;
   DrawSetup m_setupMeshEXT;
+#if SW_MESHLET
+  DrawSetup m_setupCompute;
+#endif
 
   nvvk::ProfilerVK m_profilerVK;
 

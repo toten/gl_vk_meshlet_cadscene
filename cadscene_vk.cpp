@@ -71,6 +71,10 @@ void GeometryMemoryVK::init(VkDevice                     device,
   m_maxIboChunk         = std::min(iboMax, maxChunk);
   m_maxMeshChunk        = maxChunk;
   m_maxMeshIndicesChunk = std::min(meshIndicesMax, maxChunk);
+#if SW_MESHLET
+  m_maxMeshIndexOffsetChunk = maxChunk;
+  m_maxIndirectCommandChunk = maxChunk;
+#endif
 }
 
 void GeometryMemoryVK::deinit()
@@ -87,12 +91,20 @@ void GeometryMemoryVK::deinit()
     vkDestroyBuffer(m_device, chunk.ibo, nullptr);
     vkDestroyBuffer(m_device, chunk.mesh, nullptr);
     vkDestroyBuffer(m_device, chunk.meshIndices, nullptr);
+#if SW_MESHLET
+    vkDestroyBuffer(m_device, chunk.meshIndexOffset, nullptr);
+    vkDestroyBuffer(m_device, chunk.indirectCommand, nullptr);
+#endif
 
     m_memoryAllocator->free(chunk.vboAID);
     m_memoryAllocator->free(chunk.aboAID);
     m_memoryAllocator->free(chunk.iboAID);
     m_memoryAllocator->free(chunk.meshAID);
     m_memoryAllocator->free(chunk.meshIndicesAID);
+#if SW_MESHLET
+    m_memoryAllocator->free(chunk.meshIndexOffsetAID);
+    m_memoryAllocator->free(chunk.IndirectCommandAID);
+#endif
   }
   m_chunks          = std::vector<Chunk>();
   m_device          = nullptr;
@@ -104,6 +116,10 @@ void GeometryMemoryVK::alloc(VkDeviceSize vboSize,
                              VkDeviceSize iboSize,
                              VkDeviceSize meshSize,
                              VkDeviceSize meshIndicesSize,
+#if SW_MESHLET
+                             VkDeviceSize meshIndexOffsetSize,
+                             VkDeviceSize indirectCommandSize,
+#endif
                              Allocation&  allocation)
 {
   vboSize         = alignedSize(vboSize, m_vboAlignment);
@@ -111,10 +127,22 @@ void GeometryMemoryVK::alloc(VkDeviceSize vboSize,
   iboSize         = alignedSize(iboSize, m_alignment);
   meshSize        = alignedSize(meshSize, m_alignment);
   meshIndicesSize = alignedSize(meshIndicesSize, m_alignment);
+#if SW_MESHLET
+  meshIndexOffsetSize = alignedSize(meshIndexOffsetSize, m_alignment);
+  indirectCommandSize = alignedSize(indirectCommandSize, 80);
+#endif
 
-  if(m_chunks.empty() || getActiveChunk().vboSize + vboSize > m_maxVboChunk || getActiveChunk().aboSize + aboSize > m_maxVboChunk
-     || getActiveChunk().iboSize + iboSize > m_maxIboChunk || getActiveChunk().meshSize + meshSize > m_maxMeshChunk
-     || getActiveChunk().meshIndicesSize + meshIndicesSize > m_maxMeshIndicesChunk)
+  if(m_chunks.empty()
+     || getActiveChunk().vboSize + vboSize > m_maxVboChunk
+     || getActiveChunk().aboSize + aboSize > m_maxVboChunk
+     || getActiveChunk().iboSize + iboSize > m_maxIboChunk
+     || getActiveChunk().meshSize + meshSize > m_maxMeshChunk
+     || getActiveChunk().meshIndicesSize + meshIndicesSize > m_maxMeshIndicesChunk
+#if SW_MESHLET
+     || getActiveChunk().meshIndexOffsetSize + meshIndexOffsetSize > m_maxMeshIndicesChunk
+     || getActiveChunk().indirectCommandSize + indirectCommandSize > m_maxMeshIndicesChunk
+#endif
+     )
   {
     finalize();
     Chunk chunk = {};
@@ -129,12 +157,20 @@ void GeometryMemoryVK::alloc(VkDeviceSize vboSize,
   allocation.iboOffset         = chunk.iboSize;
   allocation.meshOffset        = chunk.meshSize;
   allocation.meshIndicesOffset = chunk.meshIndicesSize;
+#if SW_MESHLET
+  allocation.meshIndexOffsetOffset = chunk.meshIndexOffsetSize;
+  allocation.indirectCommandOffset = chunk.indirectCommandSize;
+#endif
 
   chunk.vboSize += vboSize;
   chunk.aboSize += aboSize;
   chunk.iboSize += iboSize;
   chunk.meshSize += meshSize;
   chunk.meshIndicesSize += meshIndicesSize;
+#if SW_MESHLET
+  chunk.meshIndexOffsetSize += meshIndexOffsetSize;
+  chunk.indirectCommandSize += indirectCommandSize;
+#endif
 }
 
 void GeometryMemoryVK::finalize()
@@ -158,9 +194,17 @@ void GeometryMemoryVK::finalize()
   chunk.mesh = m_memoryAllocator->createBuffer(chunk.meshSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | flags, chunk.meshAID);
   chunk.meshIndices =
       m_memoryAllocator->createBuffer(chunk.meshIndicesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | flags, chunk.meshIndicesAID);
+#if SW_MESHLET
+  chunk.meshIndexOffset = m_memoryAllocator->createBuffer(chunk.meshIndexOffsetSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | flags, chunk.meshIndexOffsetAID);
+  chunk.indirectCommand = m_memoryAllocator->createBuffer(chunk.indirectCommandSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, chunk.IndirectCommandAID);
+#endif
 
   chunk.meshInfo        = {chunk.mesh, 0, chunk.meshSize};
   chunk.meshIndicesInfo = {chunk.meshIndices, 0, chunk.meshIndicesSize};
+#if SW_MESHLET
+  chunk.meshIndexOffsetInfo = {chunk.meshIndexOffset, 0, chunk.meshIndexOffsetSize};
+  chunk.indirectCommandInfo = {chunk.indirectCommand, 0, chunk.indirectCommandSize};
+#endif
 
   chunk.vboView =
       nvvk::createBufferView(m_device, nvvk::makeBufferViewCreateInfo(chunk.vbo, m_fp16 ? VK_FORMAT_R16G16B16A16_SFLOAT : VK_FORMAT_R32G32B32A32_SFLOAT,
@@ -193,6 +237,11 @@ void CadSceneVK::init(const CadScene& cadscene, VkDevice device, VkPhysicalDevic
       Geometry&                 geom    = m_geometry[g];
 
       m_geometryMem.alloc(cadgeom.vboSize, cadgeom.aboSize, cadgeom.iboSize, cadgeom.meshSize, cadgeom.meshIndicesSize,
+#if SW_MESHLET
+                          cadgeom.meshIndexOffsetSize,
+                          cadgeom.meshIndexOffsetSize * 5,
+
+#endif
                           geom.allocation);
     }
 
@@ -248,6 +297,18 @@ void CadSceneVK::init(const CadScene& cadscene, VkDevice device, VkPhysicalDevic
       geom.meshletPrim.offset = geom.allocation.meshIndicesOffset;
       geom.meshletPrim.range  = cadgeom.meshlet.primSize;
       staging.upload(geom.meshletPrim, cadgeom.meshlet.primData);
+
+#if SW_MESHLET
+      geom.meshIndexOffset.buffer = chunk.meshIndexOffset;
+      geom.meshIndexOffset.offset = geom.allocation.meshIndexOffsetOffset;
+      geom.meshIndexOffset.range  = cadgeom.meshlet.indexOffsetSize;
+      staging.upload(geom.meshIndexOffset, cadgeom.meshlet.indexOffsetData);
+
+      geom.indirectCommand.buffer = chunk.indirectCommand;
+      geom.indirectCommand.offset = geom.allocation.indirectCommandOffset;
+      geom.indirectCommand.range  = cadgeom.meshlet.indirectCommandSize;
+      staging.upload(geom.indirectCommand, cadgeom.meshlet.indirectCommandData);
+#endif
     }
   }
 

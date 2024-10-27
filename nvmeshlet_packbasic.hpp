@@ -272,6 +272,9 @@ public:
     std::vector<PackBasicType>        meshletPacks;
     std::vector<MeshletPackBasicDesc> meshletDescriptors;
     std::vector<MeshletBbox>          meshletBboxes;
+  #if SW_MESHLET
+    std::vector<uint32_t>             meshletIndexOffset;
+  #endif
   };
 
 
@@ -311,7 +314,11 @@ public:
   //////////////////////////////////////////////////////////////////////////
   // generate meshlets
 private:
+#if SW_MESHLET
+  static void addMeshlet(MeshletGeometry& geometry, const PrimitiveCache& cache, uint32_t indexOffset)
+#else
   static void addMeshlet(MeshletGeometry& geometry, const PrimitiveCache& cache)
+#endif
   {
     uint32_t packOffset = uint32_t(geometry.meshletPacks.size());
     uint32_t vertexPack = cache.numVertexAllBits <= 16 ? 2 : 1;
@@ -333,6 +340,9 @@ private:
 
     geometry.meshletPacks.resize(geometry.meshletPacks.size() + packedSize, 0);
     geometry.meshletDescriptors.push_back(meshlet);
+#if SW_MESHLET
+    geometry.meshletIndexOffset.push_back(indexOffset);
+#endif
 
     auto* pack = (MeshletPackBasic*)&geometry.meshletPacks[packOffset];
 
@@ -356,7 +366,11 @@ public:
   // If the returned number is lower than provided input, use the number
   // as starting offset and create a new geometry description.
   template <class VertexIndexType>
+#if SW_MESHLET
+  uint32_t buildMeshlets(MeshletGeometry& geometry, const uint32_t numIndices, const uint32_t indexOffset, const VertexIndexType* NV_RESTRICT indices) const
+#else
   uint32_t buildMeshlets(MeshletGeometry& geometry, const uint32_t numIndices, const VertexIndexType* NV_RESTRICT indices) const
+#endif
   {
     assert(m_maxPrimitiveCount <= MAX_PRIMITIVE_COUNT_LIMIT);
     assert(m_maxVertexCount <= MAX_VERTEX_COUNT_LIMIT);
@@ -366,19 +380,31 @@ public:
     cache.maxVertexSize    = m_maxVertexCount;
     cache.reset();
 
+#if SW_MESHLET
+    uint32_t primOffset = 0;
+#endif
     for(uint32_t i = 0; i < numIndices / 3; i++)
     {
       if(cache.cannotInsertBlock(indices[i * 3 + 0], indices[i * 3 + 1], indices[i * 3 + 2]))
       {
         // finish old and reset
+#if SW_MESHLET
+        addMeshlet(geometry, cache, indexOffset + primOffset * 3);
+        primOffset += cache.numPrims;
+#else
         addMeshlet(geometry, cache);
+#endif
         cache.reset();
       }
       cache.insert(indices[i * 3 + 0], indices[i * 3 + 1], indices[i * 3 + 2]);
     }
     if(!cache.empty())
     {
+#if SW_MESHLET
+      addMeshlet(geometry, cache, indexOffset + primOffset * 3);
+#else
       addMeshlet(geometry, cache);
+#endif
     }
 
     return numIndices;

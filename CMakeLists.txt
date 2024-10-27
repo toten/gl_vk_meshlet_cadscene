@@ -63,6 +63,7 @@ endif()
 _add_nvpro_core_lib()
 
 add_definitions(-DCSF_SUPPORT_ZLIB=1)
+add_definitions(-DSW_MESHLET=1)
 
 #####################################################################################
 # download models

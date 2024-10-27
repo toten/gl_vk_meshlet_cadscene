@@ -194,12 +194,20 @@ public:
   {
     size_t primSize;
     size_t descSize;
+#if SW_MESHLET
+    size_t indexOffsetSize;
+    size_t indirectCommandSize;
+#endif
 
     int numMeshlets = 0;
 
     // may not be used
     void* primData = nullptr;
     void* descData = nullptr;
+  #if SW_MESHLET
+    void* indexOffsetData = nullptr;
+    void* indirectCommandData = nullptr;
+  #endif
 
     ~MeshletTopology()
     {
@@ -211,6 +219,18 @@ public:
       {
         free(descData);
       }
+#if SW_MESHLET
+      if(indexOffsetData)
+      {
+        free(indexOffsetData);
+      }
+
+      if(indirectCommandData)
+      {
+        free(indirectCommandData);
+      }
+
+#endif
     }
   };
 
@@ -226,6 +246,10 @@ public:
     size_t iboSize;
     size_t meshSize;
     size_t meshIndicesSize;
+#if SW_MESHLET
+    size_t meshIndexOffsetSize;
+    size_t indirectCommandSize;
+#endif
 
     MeshletTopology meshlet;
 

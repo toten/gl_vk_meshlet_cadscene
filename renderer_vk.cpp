@@ -23,8 +23,9 @@
 #include <algorithm>
 #include <cassert>
 
-#include "common.h"
+#include "nvmeshlet_builder.hpp"
 
+#include "common.h"
 
 namespace meshlettest {
 
@@ -85,6 +86,10 @@ private:
     int lastMatrix   = -1;
     int lastChunk    = -1;
 
+    VkBuffer indirectCommandBuffer{};
+    uint32_t indirectCommandBufferOffset = 0;
+    uint32_t indirectCommandCount = 0;
+
     bool first = true;
     for(size_t i = 0; i < numItems; i++)
     {
@@ -108,6 +113,10 @@ private:
         vkCmdBindVertexBuffers(cmd, 1, 1, &geo.abo.buffer, &geo.abo.offset);
         vkCmdBindIndexBuffer(cmd, geo.ibo.buffer, geo.ibo.offset, di.shorts ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
 
+        indirectCommandBuffer = geo.indirectCommand.buffer;
+        indirectCommandBufferOffset = geo.indirectCommand.offset;
+        indirectCommandCount = geo.indirectCommand.range / sizeof(VkDrawIndexedIndirectCommand);
+
         lastGeometry = di.geometryIndex;
       }
 
@@ -120,8 +129,16 @@ private:
       }
 
       // drawcall
+#if SW_MESHLET
+      vkCmdDrawIndexedIndirect(cmd,
+                               indirectCommandBuffer,
+                               indirectCommandBufferOffset,
+                               indirectCommandCount,
+                               sizeof(VkDrawIndexedIndirectCommand));
+#else
       size_t indexSize = di.shorts ? sizeof(uint16_t) : sizeof(uint32_t);
       vkCmdDrawIndexed(cmd, di.range.count, 1, uint32_t(di.range.offset / indexSize), 0, 0);
+#endif
     }
 
     vkEndCommandBuffer(cmd);
@@ -192,6 +209,90 @@ void RendererVK::draw(const FrameConfig& global)
                                | VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                            VK_FALSE, 1, &memBarrier, 0, nullptr, 0, nullptr);
     }
+
+#if SW_MESHLET
+    {
+      VkCommandBuffer cmd = primary;
+
+      const ResourcesVK* NV_RESTRICT res     = m_resources;
+      const CadSceneVK&              sceneVK = res->m_scene;
+
+      const ResourcesVK::DrawSetup& setup = res->m_setupCompute;
+
+      vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, setup.pipeline);
+
+      vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, setup.container.getPipeLayout(), DSET_SCENE, 1,
+                              setup.container.at(DSET_SCENE).getSets(), 0, nullptr);
+
+      const RenderList::DrawItem* NV_RESTRICT drawItems = m_list->m_drawItems.data();
+      size_t                                  numItems  = m_list->m_drawItems.size();
+      size_t                                  vertexSize          = m_list->m_scene->getVertexSize();
+      size_t                                  vertexAttributeSize = m_list->m_scene->getVertexAttributeSize();
+
+      int lastGeometry = -1;
+      int lastMatrix   = -1;
+      int lastChunk    = -1;
+      for(size_t i = 0; i < numItems; i++)
+      {
+        const RenderList::DrawItem& di = drawItems[i];
+
+        if(lastGeometry != di.geometryIndex)
+        {
+          const CadSceneVK::Geometry& geo   = sceneVK.m_geometry[di.geometryIndex];
+          int                         chunk = int(geo.allocation.chunkIndex);
+
+          if(chunk != lastChunk)
+          {
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, setup.container.getPipeLayout(), DSET_GEOMETRY,
+                                    1, setup.container.at(DSET_GEOMETRY).getSets() + chunk, 0, nullptr);
+
+            lastChunk = chunk;
+          }
+
+          uint32_t offsets[4] = {uint32_t(geo.meshletDesc.offset / sizeof(NVMeshlet::MeshletDesc)),
+                                uint32_t(geo.meshletPrim.offset),
+                                uint32_t(geo.meshIndexOffset.offset) / sizeof(uint32_t),
+                                uint32_t(geo.indirectCommand.offset / sizeof(VkDrawIndexedIndirectCommand))};
+
+          vkCmdPushConstants(cmd, setup.container.getPipeLayout(),
+                              VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(offsets), offsets);
+
+          lastGeometry = di.geometryIndex;
+        }
+
+        if(lastMatrix != di.matrixIndex)
+        {
+          uint32_t offset = di.matrixIndex * res->m_alignedMatrixSize;
+          vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, setup.container.getPipeLayout(), DSET_OBJECT, 1,
+                                  setup.container.at(DSET_OBJECT).getSets(), 1, &offset);
+          lastMatrix = di.matrixIndex;
+        }
+
+        {
+          glm::uvec4 drawRange;
+          drawRange.x = di.meshlet.offset;
+          drawRange.y = di.meshlet.offset + di.meshlet.count - 1;
+          drawRange.z = 0;
+          drawRange.w = 0;
+          vkCmdPushConstants(cmd, setup.container.getPipeLayout(), VK_SHADER_STAGE_COMPUTE_BIT,
+                            sizeof(uint32_t) * 4, sizeof(drawRange), &drawRange);
+        }
+
+        uint32_t count = ((di.meshlet.count + m_list->m_config.taskNumMeshlets - 1) / m_list->m_config.taskNumMeshlets);
+        vkCmdDispatch(cmd, count, 1, 1);
+      }
+
+      {
+        VkMemoryBarrier memBarrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+        memBarrier.srcAccessMask   = VK_ACCESS_SHADER_WRITE_BIT;
+        memBarrier.dstAccessMask   = VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+        vkCmdPipelineBarrier(cmd,
+                             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                             VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+                             VK_FALSE, 1, &memBarrier, 0, nullptr, 0, nullptr);
+      }
+    }
+#endif
 
     // clear via pass
     res->cmdBeginRenderPass(primary, true, true);

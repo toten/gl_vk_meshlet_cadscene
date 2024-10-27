@@ -220,6 +220,10 @@
 // changing order requires glsl changes in drawmesh_native.mesh.glsl
 // geometryBuffer ubo
 #define GEOMETRY_SSBO_MESHLETDESC 0
+#if SW_MESHLET
+#define GEOMETRY_SSBO_MESHLET_INDEXOFFSET 1
+#define GEOMETRY_SSBO_INDIRECT_COMMAND 2
+#endif
 #define GEOMETRY_SSBO_PRIM 1
 #define GEOMETRY_TEX_VBO 2
 #define GEOMETRY_TEX_ABO 3

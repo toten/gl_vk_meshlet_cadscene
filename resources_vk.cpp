@@ -335,6 +335,37 @@ void ResourcesVK::initPipeLayouts()
     setup.container.initPipeLayout(0, 2, uint32_t(0));
   }
 
+#if SW_MESHLET
+  {
+    DrawSetup& setup = m_setupCompute;
+    setup.container.init(m_device);
+
+    auto& bindingsScene = setup.container.at(DSET_SCENE);
+    // UBO SCENE
+    bindingsScene.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1,
+                             VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
+    bindingsScene.initLayout();
+    // UBO OBJECT
+    auto& bindingsObject = setup.container.at(DSET_OBJECT);
+    bindingsObject.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1,
+                              VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
+    bindingsObject.initLayout();
+
+    // UBO GEOMETRY
+    auto& bindingsGeometry = setup.container.at(DSET_GEOMETRY);
+    bindingsGeometry.addBinding(GEOMETRY_SSBO_MESHLETDESC, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
+    bindingsGeometry.addBinding(GEOMETRY_SSBO_MESHLET_INDEXOFFSET, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
+    bindingsGeometry.addBinding(GEOMETRY_SSBO_INDIRECT_COMMAND, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
+    bindingsGeometry.initLayout();
+
+    VkPushConstantRange ranges[2];
+    ranges[0].offset     = 0;
+    ranges[0].size       = sizeof(uint32_t) * 8;
+    ranges[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    setup.container.initPipeLayout(0, 3, 1, ranges);
+  }
+#endif
+
   {
     // BBOX
     DrawSetup& setup = m_setupBbox;
@@ -449,6 +480,10 @@ void ResourcesVK::deinit()
     setup.container.deinitLayouts();
   }
 
+#if SW_MESHLET
+  m_setupCompute.container.deinitLayouts();
+#endif
+
   m_memAllocator.deinit();
 }
 
@@ -470,6 +505,9 @@ bool ResourcesVK::initPrograms(const std::string& path, const std::string& prepe
   {
     m_shaders.standard_vertex   = m_shaderManager.createShaderModule(VK_SHADER_STAGE_VERTEX_BIT, "draw.vert.glsl");
     m_shaders.standard_fragment = m_shaderManager.createShaderModule(VK_SHADER_STAGE_FRAGMENT_BIT, "draw.frag.glsl");
+#if SW_MESHLET
+    m_shaders.standard_compute   = m_shaderManager.createShaderModule(VK_SHADER_STAGE_COMPUTE_BIT, "draw.comp.glsl");
+#endif
   }
 
   {
@@ -1016,6 +1054,23 @@ void ResourcesVK::initPipes()
   stages[2].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   stages[2].pName = "main";
 
+#if SW_MESHLET
+  {
+    VkComputePipelineCreateInfo computePipelineInfo = {VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+
+    computePipelineInfo.layout = m_setupCompute.container.getPipeLayout();
+
+    VkPipelineShaderStageCreateInfo computeStage{};
+    computeStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    computeStage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    computeStage.module = m_shaderManager.get(m_shaders.standard_compute);
+    computeStage.pName = "main";
+
+    computePipelineInfo.stage = computeStage;
+    result = vkCreateComputePipelines(m_device, VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_setupCompute.pipeline);
+    assert(result == VK_SUCCESS);
+  }
+#endif
 
   {
     pipelineInfo.pRasterizationState = &rsStateInfo;
@@ -1179,6 +1234,11 @@ void ResourcesVK::deinitPipes()
     vkDestroyPipeline(m_device, setup.pipelineCullTask, nullptr);
     setup.pipelineCullTask = nullptr;
   }
+
+#if SW_MESHLET
+  vkDestroyPipeline(m_device, m_setupCompute.pipeline, nullptr);
+  m_setupCompute.pipeline = nullptr;
+#endif
 }
 
 void ResourcesVK::cmdDynamicState(VkCommandBuffer cmd) const
@@ -1368,6 +1428,12 @@ bool ResourcesVK::initScene(const CadScene& cadscene)
       m_setupBbox.container.at(DSET_SCENE).initPool(1);
       m_setupBbox.container.at(DSET_OBJECT).initPool(1);
       m_setupBbox.container.at(DSET_GEOMETRY).initPool(uint32_t(m_scene.m_geometryMem.getChunkCount()));
+
+#if SW_MESHLET
+      m_setupCompute.container.at(DSET_SCENE).initPool(1);
+      m_setupCompute.container.at(DSET_OBJECT).initPool(1);
+      m_setupCompute.container.at(DSET_GEOMETRY).initPool(uint32_t(m_scene.m_geometryMem.getChunkCount()));
+#endif
     }
     for(uint32_t isNV = 0; isNV < 2; isNV++)
     {
@@ -1390,7 +1456,10 @@ bool ResourcesVK::initScene(const CadScene& cadscene)
             m_setupStandard.container.at(DSET_OBJECT).makeWrite(0, 0, &m_scene.m_infos.matricesSingle),
             m_setupBbox.container.at(DSET_SCENE).makeWrite(0, SCENE_UBO_VIEW, &m_common.viewInfo),
             m_setupBbox.container.at(DSET_OBJECT).makeWrite(0, 0, &m_scene.m_infos.matricesSingle),
-
+#if SW_MESHLET
+            m_setupCompute.container.at(DSET_SCENE).makeWrite(0, SCENE_UBO_VIEW, &m_common.viewInfo),
+            m_setupCompute.container.at(DSET_OBJECT).makeWrite(0, 0, &m_scene.m_infos.matricesSingle),
+#endif
         };
         vkUpdateDescriptorSets(m_device, NV_ARRAY_SIZE(updateDescriptors), updateDescriptors, 0, nullptr);
       }
@@ -1417,10 +1486,14 @@ bool ResourcesVK::initScene(const CadScene& cadscene)
         const auto& chunk = m_scene.m_geometryMem.getChunk(g);
 
         writeUpdates.push_back(m_setupBbox.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_MESHLETDESC, &chunk.meshInfo));
-
         writeUpdates.push_back(m_setupBbox.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_PRIM, &chunk.meshIndicesInfo));
         writeUpdates.push_back(m_setupBbox.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_TEX_VBO, &chunk.vboView));
         writeUpdates.push_back(m_setupBbox.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_TEX_ABO, &chunk.aboView));
+#if SW_MESHLET
+        writeUpdates.push_back(m_setupCompute.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_MESHLETDESC, &chunk.meshInfo));
+        writeUpdates.push_back(m_setupCompute.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_MESHLET_INDEXOFFSET, &chunk.meshIndexOffsetInfo));
+        writeUpdates.push_back(m_setupCompute.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_INDIRECT_COMMAND, &chunk.indirectCommandInfo));
+#endif
 
         for(uint32_t isNV = 0; isNV < 2; isNV++)
         {
@@ -1465,6 +1538,10 @@ void ResourcesVK::deinitScene()
     DrawSetup& setup = isNV ? m_setupMeshNV : m_setupMeshEXT;
     setup.container.deinitPools();
   }
+
+#if SW_MESHLET
+  m_setupCompute.container.deinitPools();
+#endif
 }
 
 void ResourcesVK::synchronize()

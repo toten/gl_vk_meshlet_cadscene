@@ -92,6 +92,10 @@ struct GeometryMemoryVK
     VkDeviceSize iboOffset;
     VkDeviceSize meshOffset;
     VkDeviceSize meshIndicesOffset;
+#if SW_MESHLET
+    VkDeviceSize meshIndexOffsetOffset;
+    VkDeviceSize indirectCommandOffset;
+#endif
   };
 
   struct Chunk
@@ -101,9 +105,17 @@ struct GeometryMemoryVK
     VkBuffer abo{};
     VkBuffer mesh{};
     VkBuffer meshIndices{};
+#if SW_MESHLET
+    VkBuffer meshIndexOffset{};
+    VkBuffer indirectCommand{};
+#endif
 
     VkDescriptorBufferInfo meshInfo{};
     VkDescriptorBufferInfo meshIndicesInfo{};
+#if SW_MESHLET
+    VkDescriptorBufferInfo meshIndexOffsetInfo{};
+    VkDescriptorBufferInfo indirectCommandInfo{};
+#endif
 
     VkBufferView vboView{};
     VkBufferView aboView{};
@@ -113,12 +125,20 @@ struct GeometryMemoryVK
     VkDeviceSize iboSize{};
     VkDeviceSize meshSize{};
     VkDeviceSize meshIndicesSize{};
+#if SW_MESHLET
+    VkDeviceSize meshIndexOffsetSize{};
+    VkDeviceSize indirectCommandSize{};
+#endif
 
     nvvk::AllocationID vboAID;
     nvvk::AllocationID aboAID;
     nvvk::AllocationID iboAID;
     nvvk::AllocationID meshAID;
     nvvk::AllocationID meshIndicesAID;
+#if SW_MESHLET
+    nvvk::AllocationID meshIndexOffsetAID;
+    nvvk::AllocationID IndirectCommandAID;
+#endif
   };
 
 
@@ -134,7 +154,12 @@ struct GeometryMemoryVK
             VkDeviceSize                 aboStride,
             VkDeviceSize                 maxChunk);
   void deinit();
-  void alloc(VkDeviceSize vboSize, VkDeviceSize aboSize, VkDeviceSize iboSize, VkDeviceSize meshSize, VkDeviceSize meshIndicesSize, Allocation& allocation);
+  void alloc(VkDeviceSize vboSize, VkDeviceSize aboSize, VkDeviceSize iboSize, VkDeviceSize meshSize, VkDeviceSize meshIndicesSize,
+#if SW_MESHLET
+             VkDeviceSize meshIndexOffsetSize,
+             VkDeviceSize indirectCommandSize,
+#endif
+             Allocation& allocation);
   void finalize();
 
   [[nodiscard]] const Chunk& getChunk(const Allocation& allocation) const { return m_chunks[allocation.chunkIndex]; }
@@ -191,6 +216,10 @@ private:
   VkDeviceSize m_maxIboChunk;
   VkDeviceSize m_maxMeshChunk;
   VkDeviceSize m_maxMeshIndicesChunk;
+#if SW_MESHLET
+  VkDeviceSize m_maxMeshIndexOffsetChunk;
+  VkDeviceSize m_maxIndirectCommandChunk;
+#endif
 
   [[nodiscard]] Index getActiveIndex() const { return (m_chunks.size() - 1); }
 
@@ -215,6 +244,11 @@ public:
 
     VkDescriptorBufferInfo meshletDesc;
     VkDescriptorBufferInfo meshletPrim;
+
+#if SW_MESHLET
+    VkDescriptorBufferInfo meshIndexOffset;
+    VkDescriptorBufferInfo indirectCommand;
+#endif
   };
 
   struct Buffers
