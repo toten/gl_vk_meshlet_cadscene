@@ -48,7 +48,7 @@ layout(local_size_x=WORKGROUP_SIZE) in;
 // UNIFORMS
 
   layout(push_constant) uniform pushConstant{
-    // x: mesh, y: prim, z: indexOffset, w: indirectCommand
+    // x: mesh, y: prim, z: indexOffset, w: vertex
     uvec4     geometryOffsets;
     // x: meshFirst, y: meshMax
     uvec4     drawRange;
@@ -86,7 +86,7 @@ struct IndirectCommand
   uint      firstInstance;
 };
 
-layout(std430, binding = 2, set = DSET_GEOMETRY) buffer indirectCommandBuffer {
+layout(std430, binding = 0, set = 3) buffer indirectCommandBuffer {
   IndirectCommand indirectCommand[];
 };
 
@@ -113,10 +113,18 @@ void main()
 
   if (render)
   {
-    indirectCommand[finalIndex + geometryOffsets.w].indexCount = getMeshletNumTriangles(desc) * 3;
-    indirectCommand[finalIndex + geometryOffsets.w].instanceCount = 1;
-    indirectCommand[finalIndex + geometryOffsets.w].firstIndex = meshletIndexOffset[finalIndex + geometryOffsets.z];
-    indirectCommand[finalIndex + geometryOffsets.w].vertexOffset = 0;
-    indirectCommand[finalIndex + geometryOffsets.w].firstInstance = 0;
+    indirectCommand[finalIndex + drawRange.z].indexCount = getMeshletNumTriangles(desc) * 3;
+    indirectCommand[finalIndex + drawRange.z].instanceCount = 1;
+    indirectCommand[finalIndex + drawRange.z].firstIndex = meshletIndexOffset[finalIndex + geometryOffsets.z];
+    indirectCommand[finalIndex + drawRange.z].vertexOffset = 0;
+    indirectCommand[finalIndex + drawRange.z].firstInstance = 0;
+  }
+  else
+  {
+    indirectCommand[finalIndex + drawRange.z].indexCount = 0;
+    indirectCommand[finalIndex + drawRange.z].instanceCount = 0;
+    indirectCommand[finalIndex + drawRange.z].firstIndex = 0;
+    indirectCommand[finalIndex + drawRange.z].vertexOffset = 0;
+    indirectCommand[finalIndex + drawRange.z].firstInstance = 0;
   }
 }

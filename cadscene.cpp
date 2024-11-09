@@ -585,21 +585,18 @@ void fillMeshletTopology(NVMeshlet::PackBasicBuilder::MeshletGeometry& geometry,
   topo.primSize = sizeof(NVMeshlet::PackBasicType) * geometry.meshletPacks.size();
 #if SW_MESHLET
   topo.indexOffsetSize = sizeof(uint32_t) * geometry.meshletIndexOffset.size();
-  topo.indirectCommandSize = sizeof(uint32_t) * 5 * geometry.meshletIndexOffset.size();
 #endif
 
   topo.descData = malloc(topo.descSize);
   topo.primData = malloc(topo.primSize);
 #if SW_MESHLET
   topo.indexOffsetData = malloc(topo.indexOffsetSize);
-  topo.indirectCommandData = malloc(topo.indirectCommandSize);
 #endif
 
   memcpy(topo.descData, geometry.meshletDescriptors.data(), topo.descSize);
   memcpy(topo.primData, geometry.meshletPacks.data(), topo.primSize);
 #if SW_MESHLET
   memcpy(topo.indexOffsetData, geometry.meshletIndexOffset.data(), topo.indexOffsetSize);
-  memset(topo.indirectCommandData, 0, topo.indirectCommandSize);
 #endif
 }
 
@@ -678,7 +675,6 @@ void CadScene::buildMeshletTopology(const CSFile* csf)
       geom.meshIndicesSize = geom.meshlet.primSize;
 #if SW_MESHLET
       geom.meshIndexOffsetSize = geom.meshlet.indexOffsetSize;
-      geom.indirectCommandSize = geom.meshlet.indirectCommandSize;
 #endif
 
       size_t meshActualSize = geom.meshlet.descSize + geom.meshlet.primSize;

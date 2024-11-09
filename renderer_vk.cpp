@@ -91,6 +91,7 @@ private:
     uint32_t indirectCommandCount = 0;
 
     bool first = true;
+    int meshletTotal = 0;
     for(size_t i = 0; i < numItems; i++)
     {
       const RenderList::DrawItem& di = drawItems[i];
@@ -113,10 +114,6 @@ private:
         vkCmdBindVertexBuffers(cmd, 1, 1, &geo.abo.buffer, &geo.abo.offset);
         vkCmdBindIndexBuffer(cmd, geo.ibo.buffer, geo.ibo.offset, di.shorts ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
 
-        indirectCommandBuffer = geo.indirectCommand.buffer;
-        indirectCommandBufferOffset = geo.indirectCommand.offset;
-        indirectCommandCount = geo.indirectCommand.range / sizeof(VkDrawIndexedIndirectCommand);
-
         lastGeometry = di.geometryIndex;
       }
 
@@ -130,6 +127,13 @@ private:
 
       // drawcall
 #if SW_MESHLET
+      assert(meshletTotal + di.meshlet.count <= sceneVK.m_meshletTotal);
+      indirectCommandBuffer = sceneVK.m_infos.indirects.buffer;
+      indirectCommandBufferOffset = meshletTotal * sizeof(VkDrawIndexedIndirectCommand);
+      indirectCommandCount = di.meshlet.count;
+
+      meshletTotal += di.meshlet.count;
+
       vkCmdDrawIndexedIndirect(cmd,
                                indirectCommandBuffer,
                                indirectCommandBufferOffset,
@@ -232,6 +236,7 @@ void RendererVK::draw(const FrameConfig& global)
       int lastGeometry = -1;
       int lastMatrix   = -1;
       int lastChunk    = -1;
+      int meshletTotal = 0;
       for(size_t i = 0; i < numItems; i++)
       {
         const RenderList::DrawItem& di = drawItems[i];
@@ -249,10 +254,13 @@ void RendererVK::draw(const FrameConfig& global)
             lastChunk = chunk;
           }
 
+          // we use the same vertex offset for both vbo and abo, our allocator should ensure this condition.
+          assert(uint32_t(geo.vbo.offset / vertexSize) == uint32_t(geo.abo.offset / vertexAttributeSize));
+
           uint32_t offsets[4] = {uint32_t(geo.meshletDesc.offset / sizeof(NVMeshlet::MeshletDesc)),
                                 uint32_t(geo.meshletPrim.offset),
                                 uint32_t(geo.meshIndexOffset.offset) / sizeof(uint32_t),
-                                uint32_t(geo.indirectCommand.offset / sizeof(VkDrawIndexedIndirectCommand))};
+                                uint32_t(geo.vbo.offset / vertexSize)};
 
           vkCmdPushConstants(cmd, setup.container.getPipeLayout(),
                               VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(offsets), offsets);
@@ -269,13 +277,20 @@ void RendererVK::draw(const FrameConfig& global)
         }
 
         {
+          vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, setup.container.getPipeLayout(), DSET_DRAWITEM, 1,
+                                  setup.container.at(DSET_DRAWITEM).getSets(), 0, nullptr);
+
+          assert(meshletTotal + di.meshlet.count <= sceneVK.m_meshletTotal);
+
           glm::uvec4 drawRange;
           drawRange.x = di.meshlet.offset;
           drawRange.y = di.meshlet.offset + di.meshlet.count - 1;
-          drawRange.z = 0;
+          drawRange.z = meshletTotal;
           drawRange.w = 0;
           vkCmdPushConstants(cmd, setup.container.getPipeLayout(), VK_SHADER_STAGE_COMPUTE_BIT,
                             sizeof(uint32_t) * 4, sizeof(drawRange), &drawRange);
+
+          meshletTotal += di.meshlet.count;
         }
 
         uint32_t count = ((di.meshlet.count + m_list->m_config.taskNumMeshlets - 1) / m_list->m_config.taskNumMeshlets);

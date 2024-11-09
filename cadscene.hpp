@@ -196,7 +196,6 @@ public:
     size_t descSize;
 #if SW_MESHLET
     size_t indexOffsetSize;
-    size_t indirectCommandSize;
 #endif
 
     int numMeshlets = 0;
@@ -206,7 +205,6 @@ public:
     void* descData = nullptr;
   #if SW_MESHLET
     void* indexOffsetData = nullptr;
-    void* indirectCommandData = nullptr;
   #endif
 
     ~MeshletTopology()
@@ -224,12 +222,6 @@ public:
       {
         free(indexOffsetData);
       }
-
-      if(indirectCommandData)
-      {
-        free(indirectCommandData);
-      }
-
 #endif
     }
   };
@@ -248,7 +240,6 @@ public:
     size_t meshIndicesSize;
 #if SW_MESHLET
     size_t meshIndexOffsetSize;
-    size_t indirectCommandSize;
 #endif
 
     MeshletTopology meshlet;

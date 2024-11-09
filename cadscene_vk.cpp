@@ -93,7 +93,6 @@ void GeometryMemoryVK::deinit()
     vkDestroyBuffer(m_device, chunk.meshIndices, nullptr);
 #if SW_MESHLET
     vkDestroyBuffer(m_device, chunk.meshIndexOffset, nullptr);
-    vkDestroyBuffer(m_device, chunk.indirectCommand, nullptr);
 #endif
 
     m_memoryAllocator->free(chunk.vboAID);
@@ -103,7 +102,6 @@ void GeometryMemoryVK::deinit()
     m_memoryAllocator->free(chunk.meshIndicesAID);
 #if SW_MESHLET
     m_memoryAllocator->free(chunk.meshIndexOffsetAID);
-    m_memoryAllocator->free(chunk.IndirectCommandAID);
 #endif
   }
   m_chunks          = std::vector<Chunk>();
@@ -118,7 +116,6 @@ void GeometryMemoryVK::alloc(VkDeviceSize vboSize,
                              VkDeviceSize meshIndicesSize,
 #if SW_MESHLET
                              VkDeviceSize meshIndexOffsetSize,
-                             VkDeviceSize indirectCommandSize,
 #endif
                              Allocation&  allocation)
 {
@@ -129,7 +126,6 @@ void GeometryMemoryVK::alloc(VkDeviceSize vboSize,
   meshIndicesSize = alignedSize(meshIndicesSize, m_alignment);
 #if SW_MESHLET
   meshIndexOffsetSize = alignedSize(meshIndexOffsetSize, m_alignment);
-  indirectCommandSize = alignedSize(indirectCommandSize, 80);
 #endif
 
   if(m_chunks.empty()
@@ -140,7 +136,6 @@ void GeometryMemoryVK::alloc(VkDeviceSize vboSize,
      || getActiveChunk().meshIndicesSize + meshIndicesSize > m_maxMeshIndicesChunk
 #if SW_MESHLET
      || getActiveChunk().meshIndexOffsetSize + meshIndexOffsetSize > m_maxMeshIndicesChunk
-     || getActiveChunk().indirectCommandSize + indirectCommandSize > m_maxMeshIndicesChunk
 #endif
      )
   {
@@ -159,7 +154,6 @@ void GeometryMemoryVK::alloc(VkDeviceSize vboSize,
   allocation.meshIndicesOffset = chunk.meshIndicesSize;
 #if SW_MESHLET
   allocation.meshIndexOffsetOffset = chunk.meshIndexOffsetSize;
-  allocation.indirectCommandOffset = chunk.indirectCommandSize;
 #endif
 
   chunk.vboSize += vboSize;
@@ -169,7 +163,6 @@ void GeometryMemoryVK::alloc(VkDeviceSize vboSize,
   chunk.meshIndicesSize += meshIndicesSize;
 #if SW_MESHLET
   chunk.meshIndexOffsetSize += meshIndexOffsetSize;
-  chunk.indirectCommandSize += indirectCommandSize;
 #endif
 }
 
@@ -196,14 +189,12 @@ void GeometryMemoryVK::finalize()
       m_memoryAllocator->createBuffer(chunk.meshIndicesSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | flags, chunk.meshIndicesAID);
 #if SW_MESHLET
   chunk.meshIndexOffset = m_memoryAllocator->createBuffer(chunk.meshIndexOffsetSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | flags, chunk.meshIndexOffsetAID);
-  chunk.indirectCommand = m_memoryAllocator->createBuffer(chunk.indirectCommandSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT, chunk.IndirectCommandAID);
 #endif
 
   chunk.meshInfo        = {chunk.mesh, 0, chunk.meshSize};
   chunk.meshIndicesInfo = {chunk.meshIndices, 0, chunk.meshIndicesSize};
 #if SW_MESHLET
   chunk.meshIndexOffsetInfo = {chunk.meshIndexOffset, 0, chunk.meshIndexOffsetSize};
-  chunk.indirectCommandInfo = {chunk.indirectCommand, 0, chunk.indirectCommandSize};
 #endif
 
   chunk.vboView =
@@ -239,7 +230,6 @@ void CadSceneVK::init(const CadScene& cadscene, VkDevice device, VkPhysicalDevic
       m_geometryMem.alloc(cadgeom.vboSize, cadgeom.aboSize, cadgeom.iboSize, cadgeom.meshSize, cadgeom.meshIndicesSize,
 #if SW_MESHLET
                           cadgeom.meshIndexOffsetSize,
-                          cadgeom.meshIndexOffsetSize * 5,
 
 #endif
                           geom.allocation);
@@ -303,11 +293,6 @@ void CadSceneVK::init(const CadScene& cadscene, VkDevice device, VkPhysicalDevic
       geom.meshIndexOffset.offset = geom.allocation.meshIndexOffsetOffset;
       geom.meshIndexOffset.range  = cadgeom.meshlet.indexOffsetSize;
       staging.upload(geom.meshIndexOffset, cadgeom.meshlet.indexOffsetData);
-
-      geom.indirectCommand.buffer = chunk.indirectCommand;
-      geom.indirectCommand.offset = geom.allocation.indirectCommandOffset;
-      geom.indirectCommand.range  = cadgeom.meshlet.indirectCommandSize;
-      staging.upload(geom.indirectCommand, cadgeom.meshlet.indirectCommandData);
 #endif
     }
   }
@@ -318,11 +303,27 @@ void CadSceneVK::init(const CadScene& cadscene, VkDevice device, VkPhysicalDevic
                                                     bufferUsage, m_buffers.materialsAID);
   m_buffers.matrices  = m_memAllocator.createBuffer(cadscene.m_matrices.size() * sizeof(CadScene::MatrixNode),
                                                    bufferUsage, m_buffers.matricesAID);
+#if SW_MESHLET
+  m_meshletTotal = 0;
+  for(size_t i = 0; i < cadscene.m_objects.size(); i++)
+  {
+    const CadScene::Object&   obj = cadscene.m_objects[i];
+    const CadScene::Geometry& geo = cadscene.m_geometry[obj.geometryIndex];
+
+    m_meshletTotal += geo.meshlet.numMeshlets;
+  }
+  m_buffers.indirects = m_memAllocator.createBuffer(m_meshletTotal * sizeof(VkDrawIndexedIndirectCommand),
+                                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+                                                    m_buffers.indirectsAID);
+#endif
 
   m_infos.materialsSingle = {m_buffers.materials, 0, sizeof(CadScene::Material)};
   m_infos.materials       = {m_buffers.materials, 0, cadscene.m_materials.size() * sizeof(CadScene::Material)};
   m_infos.matricesSingle  = {m_buffers.matrices, 0, sizeof(CadScene::MatrixNode)};
   m_infos.matrices        = {m_buffers.matrices, 0, cadscene.m_matrices.size() * sizeof(CadScene::MatrixNode)};
+#if SW_MESHLET
+  m_infos.indirects       = {m_buffers.indirects, 0, m_meshletTotal * sizeof(VkDrawIndexedIndirectCommand)};
+#endif
 
   staging.upload(m_infos.materials, cadscene.m_materials.data());
   staging.upload(m_infos.matrices, cadscene.m_matrices.data());
@@ -334,10 +335,20 @@ void CadSceneVK::deinit()
 {
   vkDestroyBuffer(m_device, m_buffers.materials, nullptr);
   vkDestroyBuffer(m_device, m_buffers.matrices, nullptr);
+#if SW_MESHLET
+  vkDestroyBuffer(m_device, m_buffers.indirects, nullptr);
+#endif
 
   m_memAllocator.free(m_buffers.matricesAID);
   m_memAllocator.free(m_buffers.materialsAID);
+#if SW_MESHLET
+  m_memAllocator.free(m_buffers.indirectsAID);
+#endif
   m_geometry.clear();
   m_geometryMem.deinit();
   m_memAllocator.deinit();
+#if SW_MESHLET
+  m_meshletTotal = 0;
+  m_meshletTotalOffset.clear();
+#endif
 }

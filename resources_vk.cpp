@@ -355,14 +355,19 @@ void ResourcesVK::initPipeLayouts()
     auto& bindingsGeometry = setup.container.at(DSET_GEOMETRY);
     bindingsGeometry.addBinding(GEOMETRY_SSBO_MESHLETDESC, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
     bindingsGeometry.addBinding(GEOMETRY_SSBO_MESHLET_INDEXOFFSET, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
-    bindingsGeometry.addBinding(GEOMETRY_SSBO_INDIRECT_COMMAND, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
     bindingsGeometry.initLayout();
+
+    // SSBO DRAWITEM
+    auto& bindingsDrawItem = setup.container.at(DSET_DRAWITEM);
+    bindingsDrawItem.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1,
+                              VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
+    bindingsDrawItem.initLayout();
 
     VkPushConstantRange ranges[2];
     ranges[0].offset     = 0;
     ranges[0].size       = sizeof(uint32_t) * 8;
     ranges[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    setup.container.initPipeLayout(0, 3, 1, ranges);
+    setup.container.initPipeLayout(0, 4, 1, ranges);
   }
 #endif
 
@@ -1433,6 +1438,7 @@ bool ResourcesVK::initScene(const CadScene& cadscene)
       m_setupCompute.container.at(DSET_SCENE).initPool(1);
       m_setupCompute.container.at(DSET_OBJECT).initPool(1);
       m_setupCompute.container.at(DSET_GEOMETRY).initPool(uint32_t(m_scene.m_geometryMem.getChunkCount()));
+      m_setupCompute.container.at(DSET_DRAWITEM).initPool(1);
 #endif
     }
     for(uint32_t isNV = 0; isNV < 2; isNV++)
@@ -1459,6 +1465,7 @@ bool ResourcesVK::initScene(const CadScene& cadscene)
 #if SW_MESHLET
             m_setupCompute.container.at(DSET_SCENE).makeWrite(0, SCENE_UBO_VIEW, &m_common.viewInfo),
             m_setupCompute.container.at(DSET_OBJECT).makeWrite(0, 0, &m_scene.m_infos.matricesSingle),
+            m_setupCompute.container.at(DSET_DRAWITEM).makeWrite(0, 0, &m_scene.m_infos.indirects),
 #endif
         };
         vkUpdateDescriptorSets(m_device, NV_ARRAY_SIZE(updateDescriptors), updateDescriptors, 0, nullptr);
@@ -1492,7 +1499,6 @@ bool ResourcesVK::initScene(const CadScene& cadscene)
 #if SW_MESHLET
         writeUpdates.push_back(m_setupCompute.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_MESHLETDESC, &chunk.meshInfo));
         writeUpdates.push_back(m_setupCompute.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_MESHLET_INDEXOFFSET, &chunk.meshIndexOffsetInfo));
-        writeUpdates.push_back(m_setupCompute.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_INDIRECT_COMMAND, &chunk.indirectCommandInfo));
 #endif
 
         for(uint32_t isNV = 0; isNV < 2; isNV++)

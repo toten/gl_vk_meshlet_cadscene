@@ -39,7 +39,11 @@
 
 class NVPWindow;
 
+#if SW_MESHLET
+#define DSET_COUNT 4
+#else
 #define DSET_COUNT 3
+#endif
 
 namespace meshlettest {
 

@@ -107,7 +107,6 @@ struct GeometryMemoryVK
     VkBuffer meshIndices{};
 #if SW_MESHLET
     VkBuffer meshIndexOffset{};
-    VkBuffer indirectCommand{};
 #endif
 
     VkDescriptorBufferInfo meshInfo{};
@@ -127,7 +126,6 @@ struct GeometryMemoryVK
     VkDeviceSize meshIndicesSize{};
 #if SW_MESHLET
     VkDeviceSize meshIndexOffsetSize{};
-    VkDeviceSize indirectCommandSize{};
 #endif
 
     nvvk::AllocationID vboAID;
@@ -137,7 +135,6 @@ struct GeometryMemoryVK
     nvvk::AllocationID meshIndicesAID;
 #if SW_MESHLET
     nvvk::AllocationID meshIndexOffsetAID;
-    nvvk::AllocationID IndirectCommandAID;
 #endif
   };
 
@@ -157,7 +154,6 @@ struct GeometryMemoryVK
   void alloc(VkDeviceSize vboSize, VkDeviceSize aboSize, VkDeviceSize iboSize, VkDeviceSize meshSize, VkDeviceSize meshIndicesSize,
 #if SW_MESHLET
              VkDeviceSize meshIndexOffsetSize,
-             VkDeviceSize indirectCommandSize,
 #endif
              Allocation& allocation);
   void finalize();
@@ -247,7 +243,6 @@ public:
 
 #if SW_MESHLET
     VkDescriptorBufferInfo meshIndexOffset;
-    VkDescriptorBufferInfo indirectCommand;
 #endif
   };
 
@@ -255,9 +250,15 @@ public:
   {
     VkBuffer materials = VK_NULL_HANDLE;
     VkBuffer matrices  = VK_NULL_HANDLE;
+#if SW_MESHLET
+    VkBuffer indirects = VK_NULL_HANDLE;
+#endif
 
     nvvk::AllocationID materialsAID;
     nvvk::AllocationID matricesAID;
+#if SW_MESHLET
+    nvvk::AllocationID indirectsAID;
+#endif
   };
 
   struct Infos
@@ -266,6 +267,9 @@ public:
     VkDescriptorBufferInfo materials;
     VkDescriptorBufferInfo matricesSingle;
     VkDescriptorBufferInfo matrices;
+#if SW_MESHLET
+    VkDescriptorBufferInfo indirects;
+#endif
   };
 
 
@@ -277,6 +281,10 @@ public:
 
   std::vector<Geometry> m_geometry;
   GeometryMemoryVK      m_geometryMem;
+#if SW_MESHLET
+  uint32_t              m_meshletTotal = 0;
+  std::vector<uint32_t> m_meshletTotalOffset;
+#endif
 
 
   void init(const CadScene& cadscene, VkDevice device, VkPhysicalDevice physicalDevice, VkQueue queue, uint32_t queueFamilyIndex);
