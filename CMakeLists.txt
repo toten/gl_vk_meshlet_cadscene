@@ -30,7 +30,7 @@ endif()
     
 _add_project_definitions(${PROJNAME})
 
-set( BUILD_${PROJNAME}_VULKAN_ONLY FALSE CACHE BOOL "Avoids OpenGL in samples that support dual use" )
+set( BUILD_${PROJNAME}_VULKAN_ONLY TRUE CACHE BOOL "Avoids OpenGL in samples that support dual use" )
 
 #####################################################################################
 # additions from packages needed for this sample
@@ -38,8 +38,8 @@ set( BUILD_${PROJNAME}_VULKAN_ONLY FALSE CACHE BOOL "Avoids OpenGL in samples th
 # add refs  in LIBRARIES_DEBUG
 # add files in PACKAGE_SOURCE_FILES
 
-set( VK_EXENAME "vk_meshlet_cadscene" )
-set( GL_EXENAME "gl_meshlet_cadscene" )
+set( VK_EXENAME "vk_compute" )
+set( GL_EXENAME "gl_compute" )
 
 if(NOT BUILD_${PROJNAME}_VULKAN_ONLY)
   _add_package_OpenGL()
