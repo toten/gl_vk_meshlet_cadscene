@@ -332,7 +332,29 @@ void ResourcesVK::initPipeLayouts()
                               VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     bindingsObject.initLayout();
 
-    setup.container.initPipeLayout(0, 2, uint32_t(0));
+#if SW_MESHLET
+    // UBO GEOMETRY
+    auto& bindingsGeometry = setup.container.at(DSET_GEOMETRY);
+    bindingsGeometry.addBinding(GEOMETRY_SSBO_MESHLETDESC, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    bindingsGeometry.addBinding(GEOMETRY_SSBO_MESHLET_INDEXOFFSET, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    bindingsGeometry.addBinding(GEOMETRY_SSBO_PRIM, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    bindingsGeometry.addBinding(GEOMETRY_TEX_VBO, VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    bindingsGeometry.addBinding(GEOMETRY_TEX_ABO, VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    bindingsGeometry.initLayout();
+
+        // SSBO DRAWITEM
+    auto& bindingsDrawItem = setup.container.at(DSET_DRAWITEM);
+    bindingsDrawItem.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1,
+                              VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    bindingsDrawItem.initLayout();
+#endif
+
+    VkPushConstantRange range;
+    range.offset     = 0;
+    range.size       = sizeof(uint32_t) * 8;
+    range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    setup.container.initPipeLayout(0, 4, 1, &range);
   }
 
 #if SW_MESHLET
@@ -363,11 +385,11 @@ void ResourcesVK::initPipeLayouts()
                               VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
     bindingsDrawItem.initLayout();
 
-    VkPushConstantRange ranges[2];
-    ranges[0].offset     = 0;
-    ranges[0].size       = sizeof(uint32_t) * 8;
-    ranges[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-    setup.container.initPipeLayout(0, 4, 1, ranges);
+    VkPushConstantRange range;
+    range.offset     = 0;
+    range.size       = sizeof(uint32_t) * 8;
+    range.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    setup.container.initPipeLayout(0, 4, 1, &range);
   }
 #endif
 
@@ -1428,6 +1450,8 @@ bool ResourcesVK::initScene(const CadScene& cadscene)
     {
       m_setupStandard.container.at(DSET_SCENE).initPool(1);
       m_setupStandard.container.at(DSET_OBJECT).initPool(1);
+      m_setupStandard.container.at(DSET_GEOMETRY).initPool(uint32_t(m_scene.m_geometryMem.getChunkCount()));
+      m_setupStandard.container.at(DSET_DRAWITEM).initPool(1);
 
 
       m_setupBbox.container.at(DSET_SCENE).initPool(1);
@@ -1460,6 +1484,7 @@ bool ResourcesVK::initScene(const CadScene& cadscene)
         VkWriteDescriptorSet updateDescriptors[] = {
             m_setupStandard.container.at(DSET_SCENE).makeWrite(0, SCENE_UBO_VIEW, &m_common.viewInfo),
             m_setupStandard.container.at(DSET_OBJECT).makeWrite(0, 0, &m_scene.m_infos.matricesSingle),
+            m_setupStandard.container.at(DSET_DRAWITEM).makeWrite(0, 0, &m_scene.m_infos.indirects),
             m_setupBbox.container.at(DSET_SCENE).makeWrite(0, SCENE_UBO_VIEW, &m_common.viewInfo),
             m_setupBbox.container.at(DSET_OBJECT).makeWrite(0, 0, &m_scene.m_infos.matricesSingle),
 #if SW_MESHLET
@@ -1497,6 +1522,12 @@ bool ResourcesVK::initScene(const CadScene& cadscene)
         writeUpdates.push_back(m_setupBbox.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_TEX_VBO, &chunk.vboView));
         writeUpdates.push_back(m_setupBbox.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_TEX_ABO, &chunk.aboView));
 #if SW_MESHLET
+      writeUpdates.push_back(m_setupStandard.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_MESHLETDESC, &chunk.meshInfo));
+        writeUpdates.push_back(m_setupStandard.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_MESHLET_INDEXOFFSET, &chunk.meshIndexOffsetInfo));
+        writeUpdates.push_back(m_setupStandard.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_PRIM, &chunk.meshIndicesInfo));
+        writeUpdates.push_back(m_setupStandard.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_TEX_VBO, &chunk.vboView));
+        writeUpdates.push_back(m_setupStandard.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_TEX_ABO, &chunk.aboView));
+        
         writeUpdates.push_back(m_setupCompute.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_MESHLETDESC, &chunk.meshInfo));
         writeUpdates.push_back(m_setupCompute.container.at(DSET_GEOMETRY).makeWrite(g, GEOMETRY_SSBO_MESHLET_INDEXOFFSET, &chunk.meshIndexOffsetInfo));
 #endif

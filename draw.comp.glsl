@@ -79,10 +79,9 @@ uint laneID = gl_LocalInvocationID.x;
 
 struct IndirectCommand
 {
-  uint      indexCount;
+  uint      vertexCount;
   uint      instanceCount;
-  uint      firstIndex;
-  uint      vertexOffset;
+  uint      firstVertex;
   uint      firstInstance;
 };
 
@@ -101,9 +100,7 @@ layout(std430, binding = 0, set = 3) buffer indirectCommandBuffer {
 void main()
 {
   baseID += drawRange.x;
-  
-  uint outMeshletsCount = 0;
-  
+
   uint  meshletLocal  = laneID;
   uint  meshletGlobal = baseID + meshletLocal;
   uint  finalIndex = min(meshletGlobal, drawRange.y);
@@ -113,18 +110,7 @@ void main()
 
   if (render)
   {
-    indirectCommand[finalIndex + drawRange.z].indexCount = getMeshletNumTriangles(desc) * 3;
-    indirectCommand[finalIndex + drawRange.z].instanceCount = 1;
-    indirectCommand[finalIndex + drawRange.z].firstIndex = meshletIndexOffset[finalIndex + geometryOffsets.z];
-    indirectCommand[finalIndex + drawRange.z].vertexOffset = 0;
-    indirectCommand[finalIndex + drawRange.z].firstInstance = 0;
-  }
-  else
-  {
-    indirectCommand[finalIndex + drawRange.z].indexCount = 0;
-    indirectCommand[finalIndex + drawRange.z].instanceCount = 0;
-    indirectCommand[finalIndex + drawRange.z].firstIndex = 0;
-    indirectCommand[finalIndex + drawRange.z].vertexOffset = 0;
-    indirectCommand[finalIndex + drawRange.z].firstInstance = 0;
+    indirectCommand[atomicAdd(indirectCommand[drawRange.w].instanceCount, 1) + drawRange.z + geometryOffsets.w].firstInstance = finalIndex;
+    atomicMax(indirectCommand[drawRange.w].vertexCount, getMeshletNumTriangles(desc) * 3);
   }
 }

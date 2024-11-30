@@ -31,7 +31,7 @@
 #include <nvgl/glsltypes_gl.hpp>
 #include <imgui/backends/imgui_impl_gl.h>
 
-#define EXE_NAME "gl_compute"
+#define EXE_NAME "gl_compute_anki"
 
 #elif IS_VULKAN
 #include "vk_ext_mesh_shader.h"
@@ -39,7 +39,7 @@
 #include <nvvk/context_vk.hpp>
 #include "resources_vk.hpp"
 
-#define EXE_NAME "vk_compute"
+#define EXE_NAME "vk_compute_anki"
 #endif
 
 
