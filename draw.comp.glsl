@@ -113,18 +113,11 @@ void main()
 
   if (render)
   {
-    indirectCommand[finalIndex + drawRange.z].indexCount = getMeshletNumTriangles(desc) * 3;
-    indirectCommand[finalIndex + drawRange.z].instanceCount = 1;
-    indirectCommand[finalIndex + drawRange.z].firstIndex = meshletIndexOffset[finalIndex + geometryOffsets.z];
-    indirectCommand[finalIndex + drawRange.z].vertexOffset = 0;
-    indirectCommand[finalIndex + drawRange.z].firstInstance = 0;
-  }
-  else
-  {
-    indirectCommand[finalIndex + drawRange.z].indexCount = 0;
-    indirectCommand[finalIndex + drawRange.z].instanceCount = 0;
-    indirectCommand[finalIndex + drawRange.z].firstIndex = 0;
-    indirectCommand[finalIndex + drawRange.z].vertexOffset = 0;
-    indirectCommand[finalIndex + drawRange.z].firstInstance = 0;
+    uint idx = drawRange.x + geometryOffsets.w + drawRange.z + atomicAdd(indirectCommand[drawRange.w].instanceCount, 1);
+    indirectCommand[idx].indexCount = getMeshletNumTriangles(desc) * 3;
+    indirectCommand[idx].instanceCount = 1;
+    indirectCommand[idx].firstIndex = meshletIndexOffset[finalIndex + geometryOffsets.z];
+    indirectCommand[idx].vertexOffset = 0;
+    indirectCommand[idx].firstInstance = 0;
   }
 }

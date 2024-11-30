@@ -312,7 +312,7 @@ void CadSceneVK::init(const CadScene& cadscene, VkDevice device, VkPhysicalDevic
 
     m_meshletTotal += geo.meshlet.numMeshlets;
   }
-  m_buffers.indirects = m_memAllocator.createBuffer(m_meshletTotal * sizeof(VkDrawIndexedIndirectCommand),
+  m_buffers.indirects = m_memAllocator.createBuffer((m_meshletTotal+cadscene.m_objects.size()) * sizeof(VkDrawIndexedIndirectCommand),
                                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
                                                     m_buffers.indirectsAID);
 #endif
@@ -322,7 +322,7 @@ void CadSceneVK::init(const CadScene& cadscene, VkDevice device, VkPhysicalDevic
   m_infos.matricesSingle  = {m_buffers.matrices, 0, sizeof(CadScene::MatrixNode)};
   m_infos.matrices        = {m_buffers.matrices, 0, cadscene.m_matrices.size() * sizeof(CadScene::MatrixNode)};
 #if SW_MESHLET
-  m_infos.indirects       = {m_buffers.indirects, 0, m_meshletTotal * sizeof(VkDrawIndexedIndirectCommand)};
+  m_infos.indirects       = {m_buffers.indirects, 0, (m_meshletTotal+cadscene.m_objects.size()) * sizeof(VkDrawIndexedIndirectCommand)};
 #endif
 
   staging.upload(m_infos.materials, cadscene.m_materials.data());

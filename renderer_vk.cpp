@@ -91,7 +91,7 @@ private:
     uint32_t indirectCommandCount = 0;
 
     bool first = true;
-    int meshletTotal = 0;
+    int meshletTotal = numItems;
     for(size_t i = 0; i < numItems; i++)
     {
       const RenderList::DrawItem& di = drawItems[i];
@@ -127,7 +127,7 @@ private:
 
       // drawcall
 #if SW_MESHLET
-      assert(meshletTotal + di.meshlet.count <= sceneVK.m_meshletTotal);
+      assert(meshletTotal + di.meshlet.count <= sceneVK.m_meshletTotal + numItems);
       indirectCommandBuffer = sceneVK.m_infos.indirects.buffer;
       indirectCommandBufferOffset = meshletTotal * sizeof(VkDrawIndexedIndirectCommand);
       indirectCommandCount = di.meshlet.count;
@@ -221,6 +221,17 @@ void RendererVK::draw(const FrameConfig& global)
       const ResourcesVK* NV_RESTRICT res     = m_resources;
       const CadSceneVK&              sceneVK = res->m_scene;
 
+      vkCmdFillBuffer(cmd, sceneVK.m_infos.indirects.buffer, 0, VK_WHOLE_SIZE, 0u);
+      {
+          VkMemoryBarrier memBarrier = {VK_STRUCTURE_TYPE_MEMORY_BARRIER};
+          memBarrier.srcAccessMask   = VK_ACCESS_TRANSFER_WRITE_BIT;
+          memBarrier.dstAccessMask   = VK_ACCESS_SHADER_READ_BIT;
+          vkCmdPipelineBarrier(cmd,
+                              VK_PIPELINE_STAGE_TRANSFER_BIT,
+                              VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                              VK_FALSE, 1, &memBarrier, 0, nullptr, 0, nullptr);
+      }
+
       const ResourcesVK::DrawSetup& setup = res->m_setupCompute;
 
       vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, setup.pipeline);
@@ -260,7 +271,7 @@ void RendererVK::draw(const FrameConfig& global)
           uint32_t offsets[4] = {uint32_t(geo.meshletDesc.offset / sizeof(NVMeshlet::MeshletDesc)),
                                 uint32_t(geo.meshletPrim.offset),
                                 uint32_t(geo.meshIndexOffset.offset) / sizeof(uint32_t),
-                                uint32_t(geo.vbo.offset / vertexSize)};
+                                uint32_t(numItems)};
 
           vkCmdPushConstants(cmd, setup.container.getPipeLayout(),
                               VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(offsets), offsets);
@@ -286,7 +297,7 @@ void RendererVK::draw(const FrameConfig& global)
           drawRange.x = di.meshlet.offset;
           drawRange.y = di.meshlet.offset + di.meshlet.count - 1;
           drawRange.z = meshletTotal;
-          drawRange.w = 0;
+          drawRange.w = i;
           vkCmdPushConstants(cmd, setup.container.getPipeLayout(), VK_SHADER_STAGE_COMPUTE_BIT,
                             sizeof(uint32_t) * 4, sizeof(drawRange), &drawRange);
 
