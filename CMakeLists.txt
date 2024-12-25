@@ -38,8 +38,8 @@ set( BUILD_${PROJNAME}_VULKAN_ONLY TRUE CACHE BOOL "Avoids OpenGL in samples tha
 # add refs  in LIBRARIES_DEBUG
 # add files in PACKAGE_SOURCE_FILES
 
-set( VK_EXENAME "vk_compute" )
-set( GL_EXENAME "gl_compute" )
+set( VK_EXENAME "vk_compute_compact" )
+set( GL_EXENAME "gl_compute_compact" )
 
 if(NOT BUILD_${PROJNAME}_VULKAN_ONLY)
   _add_package_OpenGL()
