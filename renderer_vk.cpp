@@ -89,6 +89,7 @@ private:
     VkBuffer indirectCommandBuffer{};
     uint32_t indirectCommandBufferOffset = 0;
     uint32_t indirectCommandCount = 0;
+    uint32_t countBufferOffset = 0;
 
     bool first = true;
     int meshletTotal = numItems;
@@ -131,14 +132,17 @@ private:
       indirectCommandBuffer = sceneVK.m_infos.indirects.buffer;
       indirectCommandBufferOffset = meshletTotal * sizeof(VkDrawIndexedIndirectCommand);
       indirectCommandCount = di.meshlet.count;
+      countBufferOffset = i * sizeof(VkDrawIndexedIndirectCommand) + sizeof(uint32_t);
 
       meshletTotal += di.meshlet.count;
 
-      vkCmdDrawIndexedIndirect(cmd,
-                               indirectCommandBuffer,
-                               indirectCommandBufferOffset,
-                               indirectCommandCount,
-                               sizeof(VkDrawIndexedIndirectCommand));
+      vkCmdDrawIndexedIndirectCount(cmd,
+                                    indirectCommandBuffer,
+                                    indirectCommandBufferOffset,
+                                    indirectCommandBuffer,
+                                    countBufferOffset,
+                                    indirectCommandCount,
+                                    sizeof(VkDrawIndexedIndirectCommand));
 #else
       size_t indexSize = di.shorts ? sizeof(uint16_t) : sizeof(uint32_t);
       vkCmdDrawIndexed(cmd, di.range.count, 1, uint32_t(di.range.offset / indexSize), 0, 0);
