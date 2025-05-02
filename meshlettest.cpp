@@ -640,6 +640,7 @@ void Sample::initRenderer(int typesort)
   {
     Renderer::Config config;
     config.useCulling = m_tweak.usePrimitiveCull;
+    config.clones = m_tweak.copies;
 
     LOGI("renderer: %s\n", Renderer::getRegistry()[type]->name())
     m_renderer = Renderer::getRegistry()[type]->create();
@@ -705,7 +706,7 @@ void Sample::postSceneLoad()
   m_control.m_sceneUp        = m_modelUpVector;
   m_control.m_sceneOrbit     = glm::vec3(m_scene.m_bbox.max + m_scene.m_bbox.min) * 0.5f;
   m_control.m_sceneDimension = glm::length((m_scene.m_bbox.max - m_scene.m_bbox.min));
-  m_control.m_viewMatrix = glm::lookAt(m_control.m_sceneOrbit - (-glm::vec3(1.f, 1.f, 1.f) * m_control.m_sceneDimension * 0.5f),
+  m_control.m_viewMatrix = glm::lookAt(m_control.m_sceneOrbit + glm::vec3(2.0f + m_control.m_sceneDimension * 0.25, 0, 2.0f + m_control.m_sceneDimension * 0.05),
                                        m_control.m_sceneOrbit, m_modelUpVector);
 
   m_frameConfig.sceneUbo.wLightPos   = (m_scene.m_bbox.max + m_scene.m_bbox.min) * 0.5f + m_control.m_sceneDimension;
@@ -714,7 +715,7 @@ void Sample::postSceneLoad()
 
   if(!m_viewPoints.empty())
   {
-    m_control.m_viewMatrix = m_viewPoints[m_tweak.viewPoint].mat;
+    // m_control.m_viewMatrix = m_viewPoints[m_tweak.viewPoint].mat;
   }
   else
   {
@@ -1201,7 +1202,7 @@ void Sample::think(double time)
 
   if(tweakChanged(m_tweak.viewPoint))
   {
-    m_control.m_viewMatrix = m_viewPoints[m_tweak.viewPoint].mat;
+    // m_control.m_viewMatrix = m_viewPoints[m_tweak.viewPoint].mat;
   }
 
   m_resources->beginFrame();

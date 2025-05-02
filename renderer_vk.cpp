@@ -89,7 +89,7 @@ private:
       vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, setup.pipeline);
       vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, setup.container.getPipeLayout(), DSET_SCENE, 1,
                               setup.container.at(DSET_SCENE).getSets(), 0, nullptr);
-      vkCmdDraw(cmd, 9, 9, 0, 0);
+      vkCmdDraw(cmd, m_config.clones, m_config.clones, 0, 0);
     }
 
     vkEndCommandBuffer(cmd);

@@ -72,6 +72,7 @@ public:
   struct Config
   {
     bool useCulling = false;
+    float clones = 1;
   };
 
   class Type

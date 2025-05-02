@@ -391,6 +391,9 @@ bool CadScene::loadCSF(const char* filename, const LoadConfig& cfg, int clones, 
   m_numObjectParts = numParts;
 
   // compute clone move delta based on m_bbox;
+  float dimensions = static_cast<float>(clones);
+  m_bbox.min = glm::vec4(0.0f, 0.0f, -1.0f, 1.0f);
+  m_bbox.max = glm::vec4(dimensions, dimensions, 1.0f, 1.0f);
 
   glm::vec4 dim   = m_bbox.max - m_bbox.min;
   m_bboxInstanced = m_bbox;
